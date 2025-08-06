@@ -35,10 +35,10 @@
 | 变量名 | 说明 | 示例值 |
 |--------|------|--------|
 | `SUPABASE_URL` | Supabase项目URL | `https://your-project.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service Role密钥 | `eyJhbGci...` |
+| `SUPABASE_ANON_KEY` | Supabase密钥（使用Service Role密钥） | `eyJhbGci...` |
 | `SUPABASE_TABLE_NAME` | 表名（可选） | `news_items` |
 
-⚠️ **重要**: 请使用 `service_role` 密钥而不是 `anon` 密钥，才能进行数据库读写操作。
+⚠️ **重要**: 虽然变量名是 `SUPABASE_ANON_KEY`，但请使用 `service_role` 密钥以获得数据库读写权限。
 
 ### 2. 工作流配置
 
@@ -87,7 +87,7 @@ cp .env.example .env
 
 # 编辑 .env 文件，填入真实的Supabase配置
 # SUPABASE_URL=https://your-project.supabase.co
-# SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+# SUPABASE_ANON_KEY=your_service_role_key
 # SUPABASE_TABLE_NAME=news_items
 ```
 

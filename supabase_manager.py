@@ -57,20 +57,43 @@ class SupabaseManager:
         try:
             print("🔍 查询现有文章进行查重...")
             
-            # 只查询需要的字段以提高性能
-            result = self.client.table(self.table_name).select("url,title").execute()
-            
-            existing_urls = {item['url'] for item in result.data if item.get('url')}
-            existing_titles = {item['title'] for item in result.data if item.get('title')}
-            
-            print(f"📊 数据库中现有文章: {len(result.data)} 篇")
-            print(f"   - 现有URL: {len(existing_urls)} 个")
-            print(f"   - 现有标题: {len(existing_titles)} 个")
-            
-            return existing_urls, existing_titles
+            # 尝试查询，处理可能的错误
+            try:
+                # 只查询需要的字段以提高性能
+                result = self.client.table(self.table_name).select("url,title").execute()
+                
+                # 检查是否有数据返回
+                if hasattr(result, 'data') and result.data is not None:
+                    existing_urls = {item['url'] for item in result.data if item.get('url')}
+                    existing_titles = {item['title'] for item in result.data if item.get('title')}
+                    
+                    print(f"📊 数据库中现有文章: {len(result.data)} 篇")
+                    print(f"   - 现有URL: {len(existing_urls)} 个")
+                    print(f"   - 现有标题: {len(existing_titles)} 个")
+                    
+                    return existing_urls, existing_titles
+                else:
+                    # 如果没有数据或表为空
+                    print("📊 数据库表为空或无数据")
+                    return set(), set()
+                    
+            except Exception as query_error:
+                # 如果是权限或表不存在的问题
+                error_str = str(query_error)
+                if 'swagger' in error_str.lower() or 'openapi' in error_str.lower():
+                    print(f"⚠️ API返回了文档而不是数据，可能是权限问题")
+                    print("   请检查：")
+                    print("   1. Service Role密钥是否正确")
+                    print("   2. 表名是否正确")
+                    print("   3. RLS策略是否限制了访问")
+                elif 'not found' in error_str.lower():
+                    print(f"⚠️ 表 '{self.table_name}' 不存在")
+                else:
+                    print(f"⚠️ 查询错误: {error_str[:200]}")
+                return set(), set()
             
         except Exception as e:
-            print(f"❌ 查询现有文章失败: {e}")
+            print(f"❌ 查询现有文章失败: {str(e)[:200]}")
             return set(), set()
     
     def check_duplicates(self, articles: List[Dict], existing_urls: Set[str], existing_titles: Set[str]) -> List[Dict]:

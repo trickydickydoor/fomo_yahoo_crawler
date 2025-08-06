@@ -122,7 +122,7 @@ jobs:
         GITHUB_ACTIONS: true
         # Supabase配置（需要在GitHub仓库Secrets中设置）
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         SUPABASE_TABLE_NAME: ${{ secrets.SUPABASE_TABLE_NAME }}
       run: |
         echo "=== 开始Yahoo Finance新闻爬取 ==="

@@ -711,7 +711,7 @@ async def main():
     # Supabase配置 - 从环境变量读取
     supabase_config = {
         'url': os.getenv('SUPABASE_URL'),
-        'anon_key': os.getenv('SUPABASE_SERVICE_ROLE_KEY'),  # 使用service_role密钥
+        'anon_key': os.getenv('SUPABASE_ANON_KEY'),  # 注意：实际使用的是service_role密钥，但变量名统一为anon_key
         'table_name': os.getenv('SUPABASE_TABLE_NAME', 'news_items')  # 默认表名
     }
     
@@ -719,7 +719,7 @@ async def main():
     if not supabase_config['url'] or not supabase_config['anon_key']:
         print("❌ 缺少必要的环境变量:")
         print("   - SUPABASE_URL")
-        print("   - SUPABASE_SERVICE_ROLE_KEY")
+        print("   - SUPABASE_ANON_KEY")
         if is_github_actions:
             print("请在GitHub仓库设置中配置这些Secrets")
             exit(1)
