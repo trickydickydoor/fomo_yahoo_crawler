@@ -37,6 +37,24 @@ jobs:
       with:
         python-version: '3.11'  # 使用Python 3.11
         cache: 'pip'  # 启用pip缓存加速
+        cache-dependency-path: requirements.txt
+        
+    - name: 获取pip缓存目录
+      id: pip-cache-dir
+      run: |
+        echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+        
+    - name: 缓存pip依赖
+      uses: actions/cache@v4
+      id: pip-cache
+      with:
+        path: |
+          ${{ steps.pip-cache-dir.outputs.dir }}
+          ~/.local  # Linux pip user install location
+          ~/.cache/pip  # 额外的pip缓存
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
         
     - name: 缓存Playwright浏览器
       uses: actions/cache@v4
@@ -46,14 +64,26 @@ jobs:
           ~/.cache/ms-playwright
           ~/AppData/Local/ms-playwright
           ~/.local/share/ms-playwright
-        key: ${{ runner.os }}-playwright-${{ hashFiles('**/requirements.txt') }}
+        key: ${{ runner.os }}-playwright-${{ hashFiles('**/requirements.txt') }}-v2
         restore-keys: |
           ${{ runner.os }}-playwright-
         
-    - name: 升级pip和安装依赖
+    - name: 缓存Crawl4AI数据
+      uses: actions/cache@v4
+      id: crawl4ai-cache
+      with:
+        path: |
+          ~/.crawl4ai
+          ~/.cache/crawl4ai
+        key: ${{ runner.os }}-crawl4ai-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-crawl4ai-
+        
+    - name: 安装Python依赖
       run: |
-        python -m pip install --upgrade pip
+        python -m pip install --upgrade pip wheel setuptools
         pip install -r requirements.txt
+        echo "✅ Python依赖安装完成"
         
     - name: 安装Playwright浏览器（如果缓存未命中）
       if: steps.playwright-cache.outputs.cache-hit != 'true'
@@ -68,6 +98,13 @@ jobs:
         # 即使浏览器已缓存，也要确保系统依赖项存在
         python -m playwright install-deps chromium
         echo "✅ 使用缓存的Playwright浏览器"
+        
+    - name: 显示缓存状态
+      run: |
+        echo "=== 缓存状态 ==="
+        echo "Pip缓存: ${{ steps.pip-cache.outputs.cache-hit == 'true' && '✅ 命中' || '❌ 未命中' }}"
+        echo "Playwright缓存: ${{ steps.playwright-cache.outputs.cache-hit == 'true' && '✅ 命中' || '❌ 未命中' }}"
+        echo "Crawl4AI缓存: ${{ steps.crawl4ai-cache.outputs.cache-hit == 'true' && '✅ 命中' || '❌ 未命中' }}"
         
     - name: 检查系统资源
       run: |
