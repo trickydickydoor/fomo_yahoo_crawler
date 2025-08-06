@@ -120,14 +120,27 @@ jobs:
       env:
         # GitHub Actions环境标识
         GITHUB_ACTIONS: true
-        # Supabase配置（需要在GitHub仓库Secrets中设置）
+        # Supabase配置
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        SUPABASE_TABLE_NAME: ${{ secrets.SUPABASE_TABLE_NAME }}
+        SUPABASE_TABLE_NAME: ${{ secrets.SUPABASE_TABLE_NAME || 'news_items' }}
+        # 手动触发参数
+        INPUT_MAX_HOURS: ${{ github.event.inputs.max_hours || '2' }}
       run: |
         echo "=== 开始Yahoo Finance新闻爬取 ==="
         echo "运行时间: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
         echo "工作目录: $(pwd)"
+        
+        # 调试环境变量（不显示完整密钥）
+        echo "=== 环境变量检查 ==="
+        echo "SUPABASE_URL: ${SUPABASE_URL}"
+        echo "SUPABASE_TABLE_NAME: ${SUPABASE_TABLE_NAME}"
+        echo "SUPABASE_ANON_KEY长度: ${#SUPABASE_ANON_KEY}"
+        if [ -n "$SUPABASE_ANON_KEY" ]; then
+          echo "SUPABASE_ANON_KEY前10字符: ${SUPABASE_ANON_KEY:0:10}..."
+        else
+          echo "SUPABASE_ANON_KEY: 未设置"
+        fi
         
         # 运行爬虫主程序
         python yahoo_news_crawler.py

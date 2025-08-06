@@ -33,6 +33,13 @@ class SupabaseManager:
     def _connect(self):
         """建立Supabase连接"""
         try:
+            # 调试信息
+            print(f"🔧 尝试连接Supabase:")
+            print(f"   - URL: {self.url}")
+            print(f"   - Key长度: {len(self.key) if self.key else 0}")
+            print(f"   - Key前缀: {self.key[:10] if self.key else 'None'}...")
+            print(f"   - 表名: {self.table_name}")
+            
             self.client = create_client(self.url, self.key)
             print("✅ Supabase连接成功")
         except Exception as e:
@@ -78,18 +85,29 @@ class SupabaseManager:
                     return set(), set()
                     
             except Exception as query_error:
-                # 如果是权限或表不存在的问题
+                # 详细的错误调试信息
                 error_str = str(query_error)
+                print(f"❌ 数据库查询失败:")
+                print(f"   - 错误类型: {type(query_error).__name__}")
+                print(f"   - 完整错误: {error_str}")
+                print(f"   - 使用的表名: {self.table_name}")
+                print(f"   - 使用的URL: {self.url}")
+                print(f"   - 使用的Key前缀: {self.key[:20] if self.key else 'None'}...")
+                
                 if 'swagger' in error_str.lower() or 'openapi' in error_str.lower():
-                    print(f"⚠️ API返回了文档而不是数据，可能是权限问题")
-                    print("   请检查：")
-                    print("   1. Service Role密钥是否正确")
-                    print("   2. 表名是否正确")
-                    print("   3. RLS策略是否限制了访问")
-                elif 'not found' in error_str.lower():
-                    print(f"⚠️ 表 '{self.table_name}' 不存在")
+                    print(f"⚠️ API返回了文档而不是数据，这通常表示：")
+                    print("   1. 请求的端点不存在（URL或表名错误）")
+                    print("   2. 认证失败（密钥无效）")
+                    print("   3. 权限不足（需要正确的权限）")
+                elif 'not found' in error_str.lower() or '404' in error_str:
+                    print(f"⚠️ 资源未找到（表 '{self.table_name}' 可能不存在）")
+                elif 'unauthorized' in error_str.lower() or '401' in error_str:
+                    print(f"⚠️ 认证失败，请检查密钥是否正确")
+                elif 'forbidden' in error_str.lower() or '403' in error_str:
+                    print(f"⚠️ 权限不足，可能需要service_role密钥")
                 else:
-                    print(f"⚠️ 查询错误: {error_str[:200]}")
+                    print(f"⚠️ 其他查询错误")
+                
                 return set(), set()
             
         except Exception as e:
@@ -163,7 +181,7 @@ class SupabaseManager:
             'content': article.get('content', ''),
             'source': article.get('source', 'Yahoo Finance'),
             'companies': [],  # 待实现公司提取
-            'industries': ['Financial News'],  # 默认分类
+            'industries': [],  # 空数组
             'embedding_status': 'pending',  # 待向量化
             'embedding_vector_id': None,
             'embedded_at': None,

@@ -716,16 +716,28 @@ async def main():
     print("Yahoo Finance News 多URL爬虫 - Crawl4AI + Supabase集成")
     print("=" * 65)
     
+    # 第一步：立即检查环境变量配置
+    print("\n=== 第1步: 环境变量检查 ===")
+    is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
+    print(f"运行环境: {'GitHub Actions' if is_github_actions else 'Local'}")
+    
     # Supabase配置 - 从环境变量读取
     supabase_config = {
         'url': os.getenv('SUPABASE_URL'),
-        'anon_key': os.getenv('SUPABASE_ANON_KEY'),  # 注意：实际使用的是service_role密钥，但变量名统一为anon_key
-        'table_name': os.getenv('SUPABASE_TABLE_NAME', 'news_items')  # 默认表名
+        'anon_key': os.getenv('SUPABASE_ANON_KEY'),
+        'table_name': os.getenv('SUPABASE_TABLE_NAME', 'news_items')
     }
+    
+    print(f"SUPABASE_URL: {supabase_config['url'] or '未设置'}")
+    print(f"SUPABASE_TABLE_NAME: {supabase_config['table_name']}")
+    print(f"SUPABASE_ANON_KEY: {'已设置' if supabase_config['anon_key'] else '未设置'}")
+    if supabase_config['anon_key']:
+        print(f"SUPABASE_ANON_KEY长度: {len(supabase_config['anon_key'])}")
+        print(f"SUPABASE_ANON_KEY前缀: {supabase_config['anon_key'][:20]}...")
     
     # 检查必要的环境变量
     if not supabase_config['url'] or not supabase_config['anon_key']:
-        print("❌ 缺少必要的环境变量:")
+        print("\n❌ 缺少必要的环境变量:")
         print("   - SUPABASE_URL")
         print("   - SUPABASE_ANON_KEY")
         if is_github_actions:
@@ -735,15 +747,28 @@ async def main():
             print("请在本地环境中设置这些变量")
             exit(1)
     
+    # 第二步：立即测试Supabase连接
+    print("\n=== 第2步: Supabase连接测试 ===")
+    test_manager = create_supabase_manager(supabase_config)
+    if not test_manager or not test_manager.is_connected():
+        print("❌ Supabase连接测试失败，程序终止")
+        exit(1)
+    else:
+        print("✅ Supabase连接测试成功")
+        # 立即测试数据库查询
+        print("\n=== 第3步: 数据库查询测试 ===")
+        try:
+            existing_urls, existing_titles = test_manager.get_existing_articles()
+            print(f"✅ 数据库查询成功 - 现有文章: {len(existing_urls)} 个URL, {len(existing_titles)} 个标题")
+        except Exception as e:
+            print(f"❌ 数据库查询测试失败: {e}")
+            exit(1)
+    
     # 创建爬虫（带Supabase配置）
     crawler = YahooNewsCrawl4AICrawler(supabase_config=supabase_config)
     
-    # GitHub Actions环境检查
-    is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
     max_hours = int(os.getenv('INPUT_MAX_HOURS', '2'))  # 支持工作流参数
-    
-    print(f"运行环境: {'GitHub Actions' if is_github_actions else 'Local'}")
-    print(f"爬取时间范围: 最近{max_hours}小时")
+    print(f"\n爬取时间范围: 最近{max_hours}小时")
     
     # 尝试使用Crawl4AI爬取（生产环境无文章数量限制）
     print("尝试使用Crawl4AI爬取...")
