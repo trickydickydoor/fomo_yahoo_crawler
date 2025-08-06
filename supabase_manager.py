@@ -43,7 +43,7 @@ class SupabaseManager:
         """检查是否已连接"""
         return self.client is not None
     
-    async def get_existing_articles(self) -> Tuple[Set[str], Set[str]]:
+    def get_existing_articles(self) -> Tuple[Set[str], Set[str]]:
         """
         获取现有文章的URL和Title集合，用于查重
         
@@ -60,7 +60,7 @@ class SupabaseManager:
             # 尝试查询，处理可能的错误
             try:
                 # 只查询需要的字段以提高性能
-                result = self.client.table(self.table_name).select("url,title").execute()
+                result = self.client.table(self.table_name).select("url, title").execute()
                 
                 # 检查是否有数据返回
                 if hasattr(result, 'data') and result.data is not None:
@@ -198,7 +198,7 @@ class SupabaseManager:
             print(f"⚠️ 时间格式转换失败 ({time_str}): {e}")
             return datetime.now(timezone.utc).isoformat()
     
-    async def insert_articles(self, articles: List[Dict]) -> bool:
+    def insert_articles(self, articles: List[Dict]) -> bool:
         """
         批量插入文章到数据库
         
@@ -255,9 +255,9 @@ class SupabaseManager:
             return {"error": "数据库未连接"}
         
         try:
-            # 获取总数
-            result = self.client.table(self.table_name).select("*", count="exact").execute()
-            total_count = result.count
+            # 获取总数 - 通过获取所有记录来计数
+            result = self.client.table(self.table_name).select("id").execute()
+            total_count = len(result.data) if result.data else 0
             
             # 获取来源统计
             source_result = self.client.table(self.table_name).select("source").execute()

@@ -433,7 +433,7 @@ class YahooNewsCrawl4AICrawler:
         if self.supabase_manager and self.supabase_manager.is_connected():
             try:
                 # 获取数据库中现有的URL和Title
-                existing_urls, existing_titles = await self.supabase_manager.get_existing_articles()
+                existing_urls, existing_titles = self.supabase_manager.get_existing_articles()
                 
                 # 进行查重检查
                 new_articles = self.supabase_manager.check_duplicates(self.articles, existing_urls, existing_titles)
@@ -468,7 +468,7 @@ class YahooNewsCrawl4AICrawler:
                 articles_with_content = [article for article in articles_to_process if article.get('content', '').strip()]
                 
                 if articles_with_content:
-                    success = await self.supabase_manager.insert_articles(articles_with_content)
+                    success = self.supabase_manager.insert_articles(articles_with_content)
                     if success:
                         print(f"✅ 成功将 {len(articles_with_content)} 篇文章保存到数据库")
                     else:
@@ -600,7 +600,7 @@ class YahooNewsCrawl4AICrawler:
         
         if self.supabase_manager and self.supabase_manager.is_connected():
             try:
-                existing_urls, existing_titles = await self.supabase_manager.get_existing_articles()
+                existing_urls, existing_titles = self.supabase_manager.get_existing_articles()
                 new_articles = self.supabase_manager.check_duplicates(self.articles, existing_urls, existing_titles)
             except Exception as e:
                 print(f"⚠️ 数据库查重失败，将处理所有文章: {e}")
@@ -626,7 +626,7 @@ class YahooNewsCrawl4AICrawler:
             try:
                 articles_with_content = [article for article in articles_to_process if article.get('content', '').strip()]
                 if articles_with_content:
-                    success = await self.supabase_manager.insert_articles(articles_with_content)
+                    success = self.supabase_manager.insert_articles(articles_with_content)
                     if success:
                         print(f"✅ 成功将 {len(articles_with_content)} 篇文章保存到数据库")
             except Exception as e:
