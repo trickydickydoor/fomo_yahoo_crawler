@@ -25,6 +25,8 @@ jobs:
   crawl-news:
     name: 爬取Yahoo Finance新闻
     runs-on: ubuntu-latest
+    # 设置超时时间防止任务挂起
+    timeout-minutes: 30
     
     steps:
     - name: 检出代码
@@ -36,15 +38,36 @@ jobs:
         python-version: '3.11'  # 使用Python 3.11
         cache: 'pip'  # 启用pip缓存加速
         
+    - name: 缓存Playwright浏览器
+      uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/AppData/Local/ms-playwright
+          ~/.local/share/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-playwright-
+        
     - name: 升级pip和安装依赖
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
-    - name: 安装Playwright浏览器
+    - name: 安装Playwright浏览器（如果缓存未命中）
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
       run: |
-        # Playwright会被Crawl4AI自动管理，但确保浏览器可用
+        # 只在缓存未命中时安装Playwright浏览器
         python -m playwright install chromium --with-deps
+        echo "✅ Playwright浏览器已安装"
+        
+    - name: 确保Playwright依赖项已安装
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
+      run: |
+        # 即使浏览器已缓存，也要确保系统依赖项存在
+        python -m playwright install-deps chromium
+        echo "✅ 使用缓存的Playwright浏览器"
         
     - name: 检查系统资源
       run: |
