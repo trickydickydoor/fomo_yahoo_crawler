@@ -11,6 +11,7 @@ import json
 import csv
 import re
 import os
+import random
 from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlparse
 from asyncio import Semaphore
@@ -32,6 +33,41 @@ try:
 except ImportError:
     # GitHub Actions环境不需要dotenv
     pass
+
+
+class AntiDetection:
+    """反反爬虫工具类"""
+    
+    USER_AGENTS = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    ]
+    
+    @staticmethod
+    def get_random_headers():
+        """获取随机请求头"""
+        return {
+            'User-Agent': random.choice(AntiDetection.USER_AGENTS),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Cache-Control': 'max-age=0'
+        }
+    
+    @staticmethod
+    async def random_delay(min_seconds=1.0, max_seconds=3.0):
+        """随机延迟"""
+        delay = random.uniform(min_seconds, max_seconds)
+        await asyncio.sleep(delay)
 
 
 class YahooNewsCrawl4AICrawler:
@@ -93,52 +129,33 @@ class YahooNewsCrawl4AICrawler:
         return True
     
     async def get_article_content(self, article_url):
-        """获取文章的完整内容和准确时间"""
-            
+        """获取文章的完整内容和准确时间 - 使用requests替代Crawl4AI"""
         try:
-            # 配置浏览器 - 针对CI环境优化
-            browser_config = BrowserConfig(
-                browser_type="chromium", 
-                headless=True,
-                verbose=False,  # 减少日志
-                extra_args=[
-                    "--no-sandbox",  # CI环境必需
-                    "--disable-dev-shm-usage",  # 避免内存问题
-                    "--disable-gpu",  # 禁用GPU
-                    "--disable-web-security",  # 禁用Web安全限制
-                    "--disable-features=VizDisplayCompositor"  # 减少资源使用
-                ] if self.is_ci_environment else []
-            )
+            # 随机延迟，避免请求过于频繁
+            await AntiDetection.random_delay(0.5, 2.0)
             
-            # 配置爬取参数 - 不需要滚动，不等待DOM事件
-            crawl_config = CrawlerRunConfig(
-                cache_mode=CacheMode.BYPASS,
-                page_timeout=20000,  # 20秒超时，单篇文章不需要太长
-                wait_for=None  # 不等待DOM事件，直接获取内容
-            )
+            # 使用随机请求头
+            headers = AntiDetection.get_random_headers()
             
-            # 创建爬虫
-            async with AsyncWebCrawler(config=browser_config) as crawler:
-                # 添加超时保护
-                try:
-                    result = await asyncio.wait_for(
-                        crawler.arun(url=article_url, config=crawl_config),
-                        timeout=30.0  # 30秒总超时
-                    )
-                    
-                    if result.success:
-                        return self._extract_article_details(result.html, article_url)
-                    else:
-                        print(f"⚠️ Crawl4AI获取失败: {article_url}")
-                        return self.get_article_content_fallback(article_url)
-                except asyncio.TimeoutError:
-                    print(f"⚠️ Crawl4AI超时: {article_url}")
-                    return self.get_article_content_fallback(article_url)
-                    
+            # 设置会话
+            timeout = 15 if self.is_ci_environment else 10
+            
+            # 发起请求
+            response = requests.get(article_url, headers=headers, timeout=timeout)
+            response.raise_for_status()
+            
+            # 解析内容
+            return self._extract_article_details(response.text, article_url)
+            
+        except requests.exceptions.Timeout:
+            print(f"⚠️ 请求超时: {article_url}")
+            return {"content": "", "full_time": ""}
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️ 请求失败 {article_url}: {e}")
+            return {"content": "", "full_time": ""}
         except Exception as e:
             print(f"⚠️ 获取文章内容出错 {article_url}: {e}")
-            # 尝试备用方法
-            return self.get_article_content_fallback(article_url)
+            return {"content": "", "full_time": ""}
     
     def _extract_article_details(self, html_content, article_url):
         """从文章页面HTML中提取内容和时间"""
@@ -208,30 +225,6 @@ class YahooNewsCrawl4AICrawler:
             print(f"⚠️ 解析文章详情出错 {article_url}: {e}")
             return {"content": "", "full_time": ""}
     
-    def get_article_content_fallback(self, article_url):
-        """备用方法获取文章内容（使用requests）"""
-        try:
-            print(f"    🔄 尝试备用方法获取内容...")
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
-            }
-            
-            response = requests.get(article_url, headers=headers, timeout=10)
-            response.raise_for_status()
-            
-            # 使用相同的内容提取逻辑
-            result = self._extract_article_details(response.text, article_url)
-            
-            if result['content']:
-                print(f"    ✅ 备用方法获取到 {len(result['content'])} 字符内容")
-            else:
-                print(f"    ⚠️ 备用方法未获取到内容")
-            
-            return result
-            
-        except Exception as e:
-            print(f"    ❌ 备用方法也失败: {e}")
-            return {"content": "", "full_time": ""}
     
     def parse_html_content(self, html_content, max_hours=2):
         """解析HTML内容，提取新闻数据"""
@@ -417,7 +410,7 @@ class YahooNewsCrawl4AICrawler:
                     all_articles.extend(articles)
                 else:
                     print(f"从 {url} 未获取到新闻，尝试备用方法...")
-                    fallback_articles = self.crawl_single_url_fallback(url, max_hours)
+                    fallback_articles = await self.crawl_single_url_fallback(url, max_hours)
                     if fallback_articles:
                         print(f"备用方法从 {url} 获取到 {len(fallback_articles)} 篇新闻")
                         all_articles.extend(fallback_articles)
@@ -465,8 +458,9 @@ class YahooNewsCrawl4AICrawler:
         if max_articles and len(new_articles) > max_articles:
             print(f"📝 限制处理文章数量: {max_articles} 篇（总共有 {len(new_articles)} 篇新文章）")
         
-        # 获取详细内容
-        await self.fetch_articles_content_for_articles(articles_to_process, max_concurrent=5)
+        # 获取详细内容 - 降低并发数以减少被检测的风险
+        concurrent_limit = 3 if self.is_ci_environment else 5
+        await self.fetch_articles_content_for_articles(articles_to_process, max_concurrent=concurrent_limit)
         
         # 阶段4: 保存到数据库
         if self.supabase_manager and self.supabase_manager.is_connected():
@@ -529,11 +523,12 @@ class YahooNewsCrawl4AICrawler:
             try:
                 print(f"[{index:2}/{total}] 获取内容: {article['title'][:50]}...")
                 
-                # 添加总体超时保护
+                # 添加总体超时保护 - requests比Crawl4AI快，缩短超时时间
+                timeout_limit = 20.0 if self.is_ci_environment else 15.0
                 try:
                     details = await asyncio.wait_for(
                         self.get_article_content(article['link']),
-                        timeout=45.0  # 45秒总超时（包括备用方法）
+                        timeout=timeout_limit
                     )
                 except asyncio.TimeoutError:
                     print(f"    ⚠️ [{index:2}] 获取超时，跳过")
@@ -555,16 +550,19 @@ class YahooNewsCrawl4AICrawler:
                 article['content'] = ''
                 article['full_time'] = ''
     
-    def crawl_single_url_fallback(self, url, max_hours=2):
-        """单URL备用爬取方法（不使用Crawl4AI）"""
+    async def crawl_single_url_fallback(self, url, max_hours=2):
+        """单URL备用爬取方法（使用requests + 反反爬虫）"""
         print(f"备用方法爬取: {url}")
         
         try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
-            }
+            # 添加随机延迟
+            await AntiDetection.random_delay(1.0, 3.0)
             
-            response = requests.get(url, headers=headers, timeout=15)
+            # 使用随机请求头
+            headers = AntiDetection.get_random_headers()
+            
+            timeout = 20 if self.is_ci_environment else 15
+            response = requests.get(url, headers=headers, timeout=timeout)
             response.raise_for_status()
             
             print(f"✅ {url} - 备用方法：页面内容长度 {len(response.text)} 字符")
@@ -585,7 +583,7 @@ class YahooNewsCrawl4AICrawler:
         
         for url in self.urls:
             try:
-                articles = self.crawl_single_url_fallback(url, max_hours)
+                articles = await self.crawl_single_url_fallback(url, max_hours)
                 if articles:
                     print(f"备用方法从 {url} 获取到 {len(articles)} 篇新闻")
                     all_articles.extend(articles)
@@ -626,7 +624,9 @@ class YahooNewsCrawl4AICrawler:
         if max_articles and len(new_articles) > max_articles:
             print(f"📝 限制处理文章数量: {max_articles} 篇（总共有 {len(new_articles)} 篇新文章）")
         
-        await self.fetch_articles_content_for_articles(articles_to_process, max_concurrent=5)
+        # 获取详细内容 - 降低并发数以减少被检测的风险
+        concurrent_limit = 3 if self.is_ci_environment else 5
+        await self.fetch_articles_content_for_articles(articles_to_process, max_concurrent=concurrent_limit)
         
         # 阶段4: 保存到数据库
         if self.supabase_manager and self.supabase_manager.is_connected():
