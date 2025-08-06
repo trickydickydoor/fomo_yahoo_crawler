@@ -25,6 +25,14 @@ from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
 # Supabase
 from supabase_manager import SupabaseManager, create_supabase_manager
 
+# 尝试加载.env文件（本地开发使用）
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # GitHub Actions环境不需要dotenv
+    pass
+
 
 class YahooNewsCrawl4AICrawler:
     """基于Crawl4AI的Yahoo Finance新闻爬虫 - 支持多URL爬取"""
