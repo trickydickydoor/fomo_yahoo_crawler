@@ -1,0 +1,50 @@
+# 环境变量文件（重要：防止密钥泄露）
+.env
+.env.local
+.env.production
+
+# Python编译文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+
+# IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 本地数据文件
+*.csv
+*.json
+*.xlsx
+yahoo_multi_news_*
+
+# 日志文件
+*.log
+logs/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.bak
+.cache/
+
+# Playwright浏览器文件
+.playwright/
+
+# 浏览器日志
+geckodriver.log
+chromedriver.log

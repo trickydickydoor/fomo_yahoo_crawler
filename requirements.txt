@@ -1,0 +1,9 @@
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Crawl4AI（用于现代动态网页爬取，内置Playwright）
+crawl4ai>=0.4.0
+
+# Supabase（数据库集成）
+supabase>=2.0.0

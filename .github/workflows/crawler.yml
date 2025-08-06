@@ -1,0 +1,103 @@
+# GitHub Actions工作流配置 - Yahoo Finance新闻爬虫
+# 使用GitHub Actions v4最新版本
+
+name: Yahoo Finance News Crawler
+
+on:
+  schedule:
+    # 每小时运行一次（UTC时间）
+    - cron: '0 * * * *'
+  workflow_dispatch:  # 允许手动触发
+    inputs:
+      max_hours:
+        description: '爬取多少小时内的新闻'
+        required: false
+        default: '2'
+        type: string
+
+env:
+  # 确保Python输出不缓冲，便于实时查看日志
+  PYTHONUNBUFFERED: 1
+  # 设置CI环境标识
+  CI: true
+
+jobs:
+  crawl-news:
+    name: 爬取Yahoo Finance新闻
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'  # 使用Python 3.11
+        cache: 'pip'  # 启用pip缓存加速
+        
+    - name: 升级pip和安装依赖
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: 安装Playwright浏览器
+      run: |
+        # Playwright会被Crawl4AI自动管理，但确保浏览器可用
+        python -m playwright install chromium --with-deps
+        
+    - name: 检查系统资源
+      run: |
+        echo "=== 系统信息 ==="
+        echo "CPU: $(nproc) cores"
+        echo "内存: $(free -h)"
+        echo "磁盘: $(df -h / | tail -1)"
+        echo "Python版本: $(python --version)"
+        echo "Pip包列表:"
+        pip list | grep -E "(crawl4ai|supabase|requests|beautifulsoup4)"
+        
+    - name: 运行新闻爬虫
+      env:
+        # GitHub Actions环境标识
+        GITHUB_ACTIONS: true
+        # Supabase配置（需要在GitHub仓库Secrets中设置）
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        SUPABASE_TABLE_NAME: ${{ secrets.SUPABASE_TABLE_NAME }}
+      run: |
+        echo "=== 开始Yahoo Finance新闻爬取 ==="
+        echo "运行时间: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        echo "工作目录: $(pwd)"
+        
+        # 运行爬虫主程序
+        python yahoo_news_crawler.py
+        
+    - name: 显示运行结果
+      if: always()  # 无论成功失败都显示
+      run: |
+        echo "=== 爬取任务完成 ==="
+        echo "完成时间: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        echo "工作流状态: ${{ job.status }}"
+        
+        # 显示系统资源使用情况
+        echo "=== 资源使用情况 ==="
+        echo "内存使用: $(free -h)"
+        echo "磁盘使用: $(df -h / | tail -1)"
+        
+    - name: 清理临时文件
+      if: always()
+      run: |
+        # 清理可能产生的临时文件
+        find . -name "*.tmp" -delete 2>/dev/null || true
+        find . -name "yahoo_multi_news_*.json" -delete 2>/dev/null || true
+        find . -name "yahoo_multi_news_*.csv" -delete 2>/dev/null || true
+        echo "临时文件清理完成"
+
+# 工作流配置说明：
+# 1. 每小时运行一次：cron: '0 * * * *'
+# 2. 使用最新的GitHub Actions v4
+# 3. Python 3.11 + pip缓存
+# 4. 自动安装Playwright浏览器
+# 5. 完整的日志输出和错误处理
+# 6. 资源监控和清理
+# 7. 支持手动触发和参数配置
